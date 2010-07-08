@@ -1,10 +1,13 @@
 package examples
 
 import se.scalablesolutions.akka.actor._
-import Actor.Sender.Self
+import se.scalablesolutions.akka.actor.Actor._
+import se.scalablesolutions.akka.actor.ActiveObject._
 import se.scalablesolutions.akka.config.ScalaConfig._
 import se.scalablesolutions.akka.config._
 import se.scalablesolutions.akka.remote.RemoteServer
+
+import java.net.URL;  
 
 
 /**
@@ -24,34 +27,26 @@ object FaultToleranceExample{
 	def main(args: Array[String]){
 		
 		//start the supervisor
-		val supervisor = new MySupervisor
-		supervisor.start
+		val supervisor = actorOf[MySupervisor].start
 		
 		//start the worker
-		val worker = new Worker
-		worker.start
-		println("----------------------worker.start")
+		val worker = actorOf[Worker].start
 		
 		//link the supervisor and worker
 		supervisor ! SuperviseMe(worker)
-		println("----------------------supervisor ! SuperviseMe(worker)")
 		
 		//send a Get message, which will fail
 		worker ! Get
-		println("----------------------worker ! Get")
 		
 		//wait for the failure to pass and the host to change
 		Thread.sleep(5000)
-		println("----------------------Thread.sleep(5000)")
 		
 		//attempt the GET again, which will work
 		worker ! Get
-		println("----------------------worker ! Get again")
 		
 		//stop the actors
 		worker.stop
 		supervisor.stop
-		println("----------------------stop the actors")
 		()
 	}
 	
@@ -62,56 +57,53 @@ case object Get{}
 //the companion class for the worker that has two hosts used by the worker
 object Worker{
 	val productionHostOne = "http://prod-1"
-	val productionHostTwo = "http://www.google.com"
+	val productionHostTwo = "http://prod-2"
 }
 
 //actor that receives only one message (Get), which prints out the results of an HTTP GET request to the console
 class Worker extends Actor{
-	
+	import self._
 	private var host = Worker.productionHostOne
-	
+
 	//setup the lifeCycle, which is Permanent, meaning on any fault, it will be restarted
 	lifeCycle = Some(LifeCycle(Permanent))
 	
 	def receive = {
-		case Get => println("**************************"+scala.io.Source.fromURL(host).getLines.mkString)
+		case Get => 
+		println(scala.io.Source.fromURL(new URL(host)).mkString)
 	}
 	
-	//this method is called before the supervisor restarts the actor.  In this method, we change the host of 
-	//the worker to Worker.productionHostTwo, which will allow this actor to continue performing its job
+	//this method is called before the supervisor restarts the actor. 
 	override def preRestart(reason: Throwable) = {
 		reason match {
 			case e: java.net.UnknownHostException => 
-				println("**************************UnknownHostException encountered, changing host")
-				host = Worker.productionHostTwo
+				println("UnknownHostException encountered, changing host")
 			case _ => println("**************************"+"unknown exception")
 		}
 	}
 
-	//this method is called after the actor is restarted - we are just printing out that fact here
+	//this method is called after the actor is restarted - we change the host here and print it.
 	override def postRestart(reason: Throwable) {
-	 	println("**************************"+"Worker Restarted")
+		host = Worker.productionHostTwo
+	 	println("**************************"+"Worker Restarted:"+host)
 	}
 	
 }
 
-case class SuperviseMe(worker: Worker){}
+case class SuperviseMe(worker: ActorRef){}
 
 //this class supervises actors.  It accepts the SuperviseMe message which will link the passed actor to the supervisor instance
 class MySupervisor extends Actor{
-	
+	    import self._
 		//this supervisor will trap all exceptions and restart the actor
 		trapExit = List(classOf[java.net.UnknownHostException])
 		
 		//the OneForOneStrategy means that only the actor that threw the exception will be restarted
 		//if the AllForOneStrategy had been selected then this supervisor would have restarted all of its actors
 		faultHandler = Some(OneForOneStrategy(3, 1000))
-		println("**************************MySupervisor start!")
 		def receive = {
-			case SuperviseMe(worker: Worker) => 
-				println("**************************MySupervisor receive!")
-				link(worker)
-			case _ => ()
+			case SuperviseMe(worker: ActorRef) => link(worker)
+			case _ => println("***********nothing!")
 		}
 	
 }

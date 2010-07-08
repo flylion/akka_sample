@@ -2,7 +2,7 @@ package examples
 
 import se.scalablesolutions.akka.remote.RemoteServer
 import se.scalablesolutions.akka.actor._
-import Actor.Sender.Self
+import se.scalablesolutions.akka.actor.Actor._
 
 object RemoteActors{
 	
@@ -15,11 +15,9 @@ object RemoteActors{
 		newYorkServer.start("localhost", 9992)
 		
 		//create a couple of actors
-		val hollywoodActor = new HollywoodActor
-		hollywoodActor.start
+		val hollywoodActor = actorOf[HollywoodActor].start
 		
-		val newYorkActor = new NewYorkActor
-		newYorkActor.start
+		val newYorkActor = actorOf[NewYorkActor].start
 		
 		//send the hollywoodActor her new script
 		hollywoodActor ! "script"

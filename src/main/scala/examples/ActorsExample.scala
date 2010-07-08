@@ -1,13 +1,11 @@
 package examples
 
 import se.scalablesolutions.akka.actor._
-import Actor.Sender.Self
-
+import se.scalablesolutions.akka.actor.Actor._
 object ActorsExample{
 	
 	def main(args: Array[String]){
-		val actor = new VanillaActor
-		actor.start
+		val actor = actorOf[VanillaActor].start
 		
 		//fire and forget
 		actor ! "fire-and-forget"
@@ -48,7 +46,7 @@ class VanillaActor extends Actor{
 		case "fire-and-forget" => println("fire-and-forget received")
 		case "send-and-receive-eventually" => reply("right back at ya")
 		case "send-and-receive-eventually-with-timeout" =>
-			Thread.sleep(2000)
+			Thread.sleep(500)
 			reply("right back at ya")
 		case _ => println("unknown message received")
 	}
